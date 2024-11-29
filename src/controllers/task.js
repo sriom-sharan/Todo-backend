@@ -98,14 +98,22 @@ const getAllTasks = async (req, res) => {
     // Calculate the number of documents to skip
     const skip = (pageInt - 1) * limitInt;
 
-    // Fetch tasks with pagination
-    const tasks = await Task.find({ creator: userId })
-      .sort({ createdAt: -1 }) // Optional: Sort tasks by creation date (descending)
+    // Define the priority order for sorting
+    const priorityOrder = { high: 1, medium: 2, low: 3 };
+
+    // Fetch tasks with filtering, sorting, and pagination
+    const tasks = await Task.find({ 
+        creator: userId, 
+        status: { $ne: "completed" } // Exclude tasks with status "completed"
+      })
       .skip(skip) // Skip documents for the current page
       .limit(limitInt); // Limit the number of documents returned
 
-    // Get total count of tasks for the user
-    const totalTasks = await Task.countDocuments({ creator: userId });
+    // Get total count of filtered tasks for the user
+    const totalTasks = await Task.countDocuments({ 
+      creator: userId, 
+      status: { $ne: "completed" } 
+    });
 
     res.status(200).json({
       success: true,
@@ -127,5 +135,33 @@ const getAllTasks = async (req, res) => {
   }
 };
 
+const getTaskById = async (req, res) => {
+  const { taskId } = req.params; // Extract taskId from route params
+  const userId = req.user._id; // Authenticated user's ID
 
-module.exports = { createTask, updateTask, getAllTasks };
+  try {
+    // Find the task by its ID and ensure it belongs to the user
+    const task = await Task.findOne({ _id: taskId, creator: userId });
+
+    if (!task) {
+      return res.status(404).json({
+        success: false,
+        message: "Task not found or you do not have access to it",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      task,
+    });
+  } catch (err) {
+    console.error("Error fetching task:", err);
+    res.status(500).json({
+      success: false,
+      message: "An error occurred while fetching the task",
+      details: err.message,
+    });
+  }
+};
+
+module.exports = { createTask, updateTask, getAllTasks,getTaskById };
